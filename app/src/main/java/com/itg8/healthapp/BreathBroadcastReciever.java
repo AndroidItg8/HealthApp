@@ -29,12 +29,12 @@ public class BreathBroadcastReciever<T> extends ResultReceiver {
     @Override
     protected void onReceiveResult(int resultCode, Bundle resultData) {
 
-        if (mReceiver != null) {
-            if(resultCode == RESULT_CODE_OK){
-                mReceiver.onSuccess(resultData.getSerializable(PARAM_RESULT));
-            } else {
-                mReceiver.onError((Exception) resultData.getSerializable(PARAM_EXCEPTION));
-            }
-        }
+//        if (mReceiver != null) {
+//            if(resultCode == RESULT_CODE_OK){
+//                mReceiver.onSuccess(resultData.getSerializable(PARAM_RESULT));
+//            } else {
+//                mReceiver.onError((Exception) resultData.getSerializable(PARAM_EXCEPTION));
+//            }
+//        }
     }
 }

@@ -59,10 +59,7 @@ public class BreathSchudleService extends JobIntentService {
     }
 
     private void sendDataToActivity(BreathModel model) {
-        Intent localIntent =
-                new Intent("BROADCAST_ACTION")
-                        // Puts the status into the Intent
-                        .putExtra("EXTENDED_DATA_STATUS", model);
+        Intent localIntent = new Intent("BROADCAST_ACTION").putExtra("EXTENDED_DATA_STATUS", model);
         LocalBroadcastManager.getInstance(this).sendBroadcast(localIntent);
 
 
