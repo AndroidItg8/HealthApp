@@ -4,14 +4,23 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 public class BreathModel implements Parcelable {
-    private String value;
+    private int value;
     private String status;
+    private long timestamp;
 
-    public String getValue() {
+    public int getValue() {
         return value;
     }
 
-    public void setValue(String value) {
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public void setValue(int value) {
         this.value = value;
     }
 
@@ -34,7 +43,7 @@ public class BreathModel implements Parcelable {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-        dest.writeString(this.value);
+        dest.writeInt(this.value);
         dest.writeString(this.status);
     }
 
@@ -42,7 +51,7 @@ public class BreathModel implements Parcelable {
     }
 
     protected BreathModel(Parcel in) {
-        this.value = in.readString();
+        this.value = in.readInt();
         this.status = in.readString();
     }
 

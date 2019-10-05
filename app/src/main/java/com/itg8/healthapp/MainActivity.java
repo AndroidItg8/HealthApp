@@ -2,10 +2,11 @@ package com.itg8.healthapp;
 
 import android.Manifest;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 
-import android.content.pm.PackageManager;
-import android.graphics.BitmapFactory;
+import android.content.IntentFilter;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -23,80 +24,139 @@ import com.github.mikephil.charting.formatter.IAxisValueFormatter;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.gson.Gson;
+import com.itg8.healthapp.background.BgModelThread;
 import com.itg8.healthapp.common.Prefs;
 import com.itg8.healthapp.model.BreathModel;
+import com.itg8.healthapp.utils.AppConst;
+import com.itg8.healthapp.utils.SharedPrefUtils;
+import com.itg8.healthapp.utils.Utils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
 
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
 import org.qap.ctimelineview.TimelineRow;
 import org.qap.ctimelineview.TimelineViewAdapter;
 
-import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.EasyPermissions;
 
+
 public class MainActivity extends AppCompatActivity implements EasyPermissions.PermissionCallbacks {
 
     private static final int RC_CALL = 2345;
-    ArrayList<TimelineRow> timelineRowsList = new ArrayList<>();
     private static final String TAG = "MainActivity";
-    BreathModel model = new BreathModel();
-    List<BreathModel> list = new ArrayList<>();
-    int breathValue = 12;
-    StringBuilder sb = new StringBuilder();
-    private static int countStress = 0;
-    private boolean isPrermission;
+
+
     ArrayList<String> mLabels = new ArrayList<>();
     private LineChart mChart;
 
+    private Handler myHandler;
+
+    private Runnable listInteractor;
+
+
+    BroadcastReceiver mBreathReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction() != null) {
+                if (intent.getAction().equalsIgnoreCase(AppConst.ACTION_BROADCAST_BREATH)) {
+                    if (intent.getBooleanExtra(AppConst.EXTRA_BREATH_CHANGE, true)) {
+                        Log.d(TAG, "onReceive:  BroadcastReceiver");
+                        List<BreathModel> listBreathModel = SharedPrefUtils.getAllBreathModel();
+                        generateTimeLine(listBreathModel);
+                    }
+                }
+            }
+
+        }
+    };
+    private TimelineViewAdapter myAdapter;
+    private ListView myListView;
+    private boolean isPrermission=false;
+
+    private void generateTimeLine(List<BreathModel> listBreathModel) {
+        listInteractor = new BgModelThread(listBreathModel) {
+            @Override
+            public void run(List<TimelineRow> list) {
+                if (Looper.myLooper() == Looper.getMainLooper())
+                    Log.d(TAG, "run: is main thread");
+                setTimeLine(list);
+            }
+        };
+        myHandler.post(listInteractor);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Toolbar toolbar = findViewById(R.id.toolbar);
-        mChart = findViewById(R.id.barchart);
         setSupportActionBar(toolbar);
-        sb.append("12").append(",");
-        Prefs.putString("value", sb.toString());
-//        setTimeLine();
-        setObservable();
+        init();
 
-        //  checkPermissionLocation();
+        Utils.scheduleTimer(this, AppConst.TIMER_DELAY);
 
         FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
                 startActivity(new Intent(MainActivity.this, SleepActivity.class));
 
             }
         });
 
 
+    }
+
+    private void init() {
+        myHandler = new Handler();
+        initView();
+        checkPermissionLocation();
+        generateTimeLine(SharedPrefUtils.getAllBreathModel());
+
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(AppConst.ACTION_BROADCAST_BREATH);
+        LocalBroadcastManager.getInstance(this).registerReceiver(mBreathReceiver, filter);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        try {
+            LocalBroadcastManager.getInstance(this).unregisterReceiver(mBreathReceiver);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void initView() {
+        mChart = findViewById(R.id.barchart);
+         myListView = (ListView) findViewById(R.id.timeline_listView);
 
     }
 
     private void setObservable() {
+
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -111,20 +171,9 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                 });
                 mChart.animateX(1000);
             }
-        }, 100);
+        }, 1000 * 60);
     }
 
-    private void getServiceData() {
-        try {
-            Thread.sleep(1000);
-            breathValue = breathValue + 5;
-            callJobServiceToDownload();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-
-    }
 
 
     private void cubicLineChart() {
@@ -171,7 +220,6 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         mChart.getLegend().setEnabled(false);
 
 
-
         ArrayList<Entry> yVals = new ArrayList<Entry>();
         final List<Data> data = new ArrayList<>();
         data.add(new Data(0f, 50f, "11-1"));
@@ -187,7 +235,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         List<Integer> colors = new ArrayList<Integer>();
 
 
-       final  List<String> timeList = new ArrayList<>();
+        final List<String> timeList = new ArrayList<>();
         timeList.add("11-1");
         timeList.add("1-3");
         timeList.add("3-5");
@@ -207,7 +255,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                 return mLabels.get(Math.min(Math.max((int) value, 0), mLabels.size() - 1));
             }
         });
-        setDataForCubicLineChart(colors,yVals, data);
+        setDataForCubicLineChart(colors, yVals, data);
 
 
     }
@@ -262,7 +310,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                 set1.setFillColor(Color.BLUE);
             }
 
-                set1.setFillAlpha(50);
+            set1.setFillAlpha(50);
             set1.setDrawFilled(true);
 
             set1.setDrawHorizontalHighlightIndicator(true);
@@ -284,62 +332,33 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     protected void onResume() {
         super.onResume();
 
-//        if (breathValue < 40)
-//            getServiceData();
-//        else
-//            breathValue = 12;
-
-
-
 
 
     }
 
 
-    private void callJobServiceToDownload() {
-        model = new BreathModel();
-        model.setValue(String.valueOf(breathValue));
-        sb.append(breathValue).append(",");
-        Prefs.putString("value", sb.toString());
-        list.add(model);
-        setTimeLine();
 
 
-//            if (breathValue >= 12 && breathValue < 20)
-//
-//            else if (breathValue > 20 && breathValue < 30) {
-//                model.setStatus("Focus");
-//            } else if (breathValue > 30 && breathValue < 50) {
-//                model.setStatus("Stress");
-//            }
-
-        //  setJoSchedule(model);
-
-
-        Log.d(TAG, "callJobServiceToDownload: " + new Gson().toJson(model));
-        Log.d(TAG, "callJobServiceToDownload: " + new Gson().toJson(list));
-        Log.d(TAG, "callJobServiceToDownload: " + Prefs.getString("value"));
-
-
-    }
-
-
-    private void setTimeLine() {
+    private void setTimeLine(List<TimelineRow> list) {
         // Create Timeline rows List
-        ListView myListView = (ListView) findViewById(R.id.timeline_listView);
-        ArrayAdapter<TimelineRow> myAdapter = new TimelineViewAdapter(this, 0, timelineRowsList,
-                false);
+        if (myAdapter == null) {
+            Log.d(TAG, "setTimeLine: myAdapter");
+            ArrayList<TimelineRow> listTimeLine = new ArrayList<>(list);
 
-        String sb = Prefs.getString("value");
-        String[] values = sb.split(",");
-        Log.d(TAG, "setTimeLine: " + new Gson().toJson(values));
-        for (int i = 0; i < values.length; i++)
-            timelineRowsList.add(setData(values[i]));
-
-
-        myListView.setAdapter(myAdapter);
+            myAdapter = new TimelineViewAdapter(this, 0, listTimeLine,
+                    true);
+            myListView.setAdapter(myAdapter);
+            return;
+        }
+        Log.d(TAG, "setTimeLine: ");
+        myAdapter.clear();
+        myAdapter.addAll(list);
         myAdapter.notifyDataSetChanged();
     }
+//        Log.d(TAG, "setTimeLine: "+new Gson().toJson(list));
+
+
+
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     private void callSOS() {
@@ -352,58 +371,6 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 //        } else {
 //            startActivity(intent);
 //        }
-    }
-
-    private TimelineRow setData(String model) {
-
-        TimelineRow myRow = new TimelineRow(0);
-
-        String title = null;
-        int colorTitle = 0;
-        int colorBackground = 0;
-// To set the row Date (optional)
-        myRow.setDate(new Date());
-// To set the row Title (optional)
-        if (Integer.parseInt(model) > 11 && Integer.parseInt(model) < 19) {
-            title = "Normal";
-            colorTitle = Color.parseColor("#00BCD4");
-            colorBackground = Color.parseColor("#00BCD4");
-        } else if (Integer.parseInt(model) > 20 && Integer.parseInt(model) < 30) {
-            title = "Focus";
-            colorTitle = Color.parseColor("#FF5722");
-            colorBackground = Color.parseColor("#FF5722");
-
-        } else if (Integer.parseInt(model) > 30) {
-            title = "Stress";
-            countStress++;
-            colorTitle = Color.parseColor("#FF540E01");
-            colorBackground = Color.parseColor("#FF540E01");
-            Log.d(TAG, "setData: " + countStress);
-        }
-
-
-        myRow.setTitle(title);
-// To set the row Description (optional)
-        myRow.setDescription(model + " Breath Value");
-// To set the row bitmap image (optional)
-        myRow.setImage(BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher));
-// To set row Below Line Color (optional)
-// To set row Below Line Size in dp (optional)
-        myRow.setBellowLineSize(4);
-// To set row Image Size in dp (optional)
-        myRow.setImageSize(40);
-        myRow.setBellowLineColor(colorBackground);
-// To set background color of the row image (optional)
-        myRow.setBackgroundColor(colorBackground);
-// To set the Background Size of the row image in dp (optional)
-        myRow.setBackgroundSize(20);
-// To set row Date text color (optional)
-        myRow.setDateColor(getResources().getColor(R.color.colorGray));
-// To set row Title text color (optional)
-        myRow.setTitleColor(colorTitle);
-// To set row Description text color (optional)
-        myRow.setDescriptionColor(colorTitle);
-        return myRow;
     }
 
 
@@ -430,10 +397,9 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     }
 
 
-
     @AfterPermissionGranted(RC_CALL)
     private void checkPermissionLocation() {
-        String[] perms = {Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION};
+        String[] perms = {Manifest.permission.CALL_PHONE, Manifest.permission.SEND_SMS};
         if (EasyPermissions.hasPermissions(this, perms)) {
 
         } else {
