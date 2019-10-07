@@ -25,8 +25,10 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.gson.Gson;
 import com.itg8.healthapp.background.BgModelThread;
+import com.itg8.healthapp.background.SleepModelThread;
 import com.itg8.healthapp.common.Prefs;
 import com.itg8.healthapp.model.BreathModel;
+import com.itg8.healthapp.model.SleepModel;
 import com.itg8.healthapp.utils.AppConst;
 import com.itg8.healthapp.utils.SharedPrefUtils;
 import com.itg8.healthapp.utils.Utils;
@@ -60,9 +62,9 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     private static final int RC_CALL = 2345;
     private static final String TAG = "MainActivity";
-
-
     ArrayList<String> mLabels = new ArrayList<>();
+
+
     private LineChart mChart;
 
     private Handler myHandler;
@@ -87,7 +89,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     };
     private TimelineViewAdapter myAdapter;
     private ListView myListView;
-    private boolean isPrermission=false;
+    private boolean isPrermission = false;
 
     private void generateTimeLine(List<BreathModel> listBreathModel) {
         listInteractor = new BgModelThread(listBreathModel) {
@@ -128,8 +130,196 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         initView();
         checkPermissionLocation();
         generateTimeLine(SharedPrefUtils.getAllBreathModel());
+        generateSleepGraph();
+
 
     }
+
+    private void generateSleepGraph() {
+        cubicLineChart();
+        mChart.invalidate();
+        mChart.notifyDataSetChanged();
+        mChart.animateX(1000);
+        new SleepModelThread(mChart) {
+            @Override
+            public void run() {
+                Log.d(TAG, "run: is main thread SleepGraph");
+                if (Looper.myLooper() == Looper.getMainLooper())
+                    Log.d(TAG, "run: is main thread SleepGraph");
+
+            }
+        };
+
+    }
+
+    private void cubicLineChart() {
+        Log.d(TAG, "cubicLineChart: ");
+        mChart.setViewPortOffsets(90, 70, 80, 70);
+        mChart.setTouchEnabled(true);
+        mChart.getDescription().setEnabled(false);
+        mChart.setTouchEnabled(true);
+        mChart.setDragEnabled(false);
+        mChart.setScaleEnabled(false);
+        mChart.setDrawGridBackground(false);
+        mChart.setHighlightPerDragEnabled(false);
+        mChart.setHighlightPerTapEnabled(true);
+        mChart.setHorizontalScrollBarEnabled(true);
+        mChart.setVisibleXRangeMaximum(6);
+        mChart.moveViewToX(10);
+        mChart.setMaxHighlightDistance(250);
+
+        XAxis x = mChart.getXAxis();
+        x.setEnabled(true);
+        x.setDrawGridLines(false);
+        x.setAvoidFirstLastClipping(true);
+        x.setLabelCount(6, true);
+        x.setPosition(XAxis.XAxisPosition.BOTTOM);
+        x.setSpaceMax(10);
+        x.setDrawAxisLine(true);
+        x.setAxisLineWidth(0.4f);
+        x.setTextColor(Color.BLACK);
+        x.setTextSize(8f);
+        x.setYOffset(4f);
+        x.setAxisLineColor(getResources().getColor(R.color.colorAccent));
+
+
+
+        YAxis y = mChart.getAxisLeft();
+        y.setLabelCount(3, true);
+        y.setTextColor(Color.BLACK);
+        y.setPosition(YAxis.YAxisLabelPosition.OUTSIDE_CHART);
+        y.setDrawGridLines(false);
+        y.setAxisLineColor(getResources().getColor(R.color.colorAccent));
+        y.setYOffset(4f);
+        y.setAxisLineWidth(0.4f);
+
+        mLabels.add("Deep");
+        mLabels.add("Light");
+        mLabels.add("Awake");
+        mChart.getAxisRight().setEnabled(false);
+        mChart.getLegend().setEnabled(false);
+        mChart.animateXY(2000, 2000);
+        mChart.invalidate();
+
+
+
+        ArrayList<Entry> yVals = new ArrayList<Entry>();
+        final List<SleepModel> data = new ArrayList<>();
+        data.add(new SleepModel(0f, 50f, "11-1"));
+        data.add(new SleepModel(1f, 2338.5f, "1-3"));
+        data.add(new SleepModel(2f, -2438.1f, "3-5"));
+        data.add(new SleepModel(3f, 50f, "5-6"));
+        data.add(new SleepModel(4f, -2238.1f, "6-8"));
+        data.add(new SleepModel(5f, 50f, "11-1"));
+        data.add(new SleepModel(6f, 2338.5f, "1-3"));
+        data.add(new SleepModel(7f, -2438.1f, "3-5"));
+        data.add(new SleepModel(8f, 50f, "5-6"));
+        data.add(new SleepModel(9f, 70f, "6-8"));
+
+        List<Integer> colors = new ArrayList<Integer>();
+
+
+        final List<String> timeList = new ArrayList<>();
+        timeList.add("11-1");
+        timeList.add("1-3");
+        timeList.add("3-5");
+        timeList.add("5-6");
+        timeList.add("6-8");
+
+        x.setValueFormatter(new IAxisValueFormatter() {
+            @Override
+            public String getFormattedValue(float value, AxisBase axis) {
+                Log.d(TAG, "getFormattedValue: " + timeList.get(Math.min(Math.max((int) value, 0), timeList.size()-1)));
+
+                return timeList.get(Math.min(Math.max((int) value, 0), timeList.size()-1));
+            }
+        });
+
+        y.setValueFormatter(new IAxisValueFormatter() {
+            @Override
+            public String getFormattedValue(float value, AxisBase axis) {
+                Log.d(TAG, "getFormattedValue: " + mLabels.get(Math.min(Math.max((int) value, 0), mLabels.size()-1)));
+
+                return mLabels.get(Math.min(Math.max((int) value, 0), mLabels.size()-1));
+            }
+        });
+
+        setDataForCubicLineChart(colors, yVals, data);
+
+
+    }
+
+    private void setDataForCubicLineChart(List<Integer> colors, ArrayList<Entry> yVals, List<SleepModel> data) {
+
+        int blue = Color.parseColor("#00B0EC");
+        //rgb(110, 190, 102);
+        int blueLight = Color.parseColor("#7f6ecded");
+        int awakeColor = Color.parseColor("#F39CDEF4");
+
+        SleepModel d = null;
+        for (int i = 0; i < data.size(); i++) {
+            d = data.get(i);
+            BarEntry entry = new BarEntry(d.xValue, d.yValue);
+            Log.d(TAG, "xValue:" + d.xValue + "yValue:" + d.yValue);
+            yVals.add(entry);
+        }
+        Log.d(TAG, "setDataForCubicLineChart: "+new Gson().toJson(yVals));
+        LineDataSet set1;
+        if (mChart.getData() != null && mChart.getData().getDataSetCount() > 0) {
+            set1 = (LineDataSet) mChart.getData().getDataSetByIndex(0);
+            set1.setValues(yVals);
+            mChart.getData().notifyDataChanged();
+            mChart.notifyDataSetChanged();
+            mChart.invalidate();
+
+        } else {
+            set1 = new LineDataSet(yVals, "DataSet 1");
+            set1.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+            set1.setCubicIntensity(0.2f);
+            set1.setDrawFilled(true);
+            set1.setDrawCircles(false);
+            set1.setLineWidth(0.5f);
+            set1.setHighLightColor(mChart.getContext().getResources().getColor(R.color.colorPrimary));
+            set1.setCircleRadius(0.5f);
+            set1.setCircleColor(mChart.getContext().getResources().getColor(R.color.colorPrimary));
+//            set1.setHighLightColor(Color.rgb(244, 117, 117));
+
+
+            // specific colors
+
+            set1.setColor(Color.BLUE);
+            if (d.yValue >= 0) {
+//                colors.add(blue,0);
+                set1.setFillColor(getResources().getColor(R.color.colorDeep));
+            } else {
+//                colors.add(blueLight,1);
+//                set1.setFillColor(Col);
+                set1.setFillColor(getResources().getColor(R.color.colorLight));
+
+            }
+
+            if (d.yValue >= 0 && d.yValue <= 100) {
+//                colors.add(awakeColor,2);
+                set1.setFillColor(getResources().getColor(R.color.colorAwake));
+            }
+
+//            set1.setFillAlpha(50);
+            set1.setDrawFilled(true);
+
+            set1.setDrawHorizontalHighlightIndicator(true);
+            LineData dataLine = new LineData(set1);
+            dataLine.setValueTextSize(9f);
+            dataLine.setDrawValues(false);
+            CustomMarkerView mv = new CustomMarkerView(mChart.getContext(), R.layout.linechart_three_tooltip);
+            mv.setChartView(mChart);
+            mv.setPadding(10, 8, 10, 8);
+            mChart.setMarkerView(mv);
+            mChart.setData(dataLine);
+
+
+        }
+    }
+
 
     @Override
     protected void onStart() {
@@ -151,180 +341,8 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     private void initView() {
         mChart = findViewById(R.id.barchart);
-         myListView = (ListView) findViewById(R.id.timeline_listView);
+        myListView = (ListView) findViewById(R.id.timeline_listView);
 
-    }
-
-    private void setObservable() {
-
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                cubicLineChart();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        mChart.invalidate();
-//                        mChart.getData().notifyDataChanged();
-                        mChart.notifyDataSetChanged();
-                    }
-                });
-                mChart.animateX(1000);
-            }
-        }, 1000 * 60);
-    }
-
-
-
-    private void cubicLineChart() {
-        mChart.setViewPortOffsets(70, 10, 70, 10);
-        mChart.setTouchEnabled(true);
-        mChart.getDescription().setEnabled(false);
-        mChart.setTouchEnabled(true);
-        mChart.setDragEnabled(false);
-        mChart.setScaleEnabled(false);
-        mChart.setDrawGridBackground(false);
-        mChart.setHighlightPerDragEnabled(false);
-        mChart.setHighlightPerTapEnabled(true);
-        mChart.setHorizontalScrollBarEnabled(true);
-        mChart.setVisibleXRangeMaximum(10);
-        mChart.moveViewToX(10);
-        mChart.setMaxHighlightDistance(300);
-
-
-        XAxis x = mChart.getXAxis();
-        x.setEnabled(true);
-        x.setDrawGridLines(false);
-        x.setAvoidFirstLastClipping(true);
-        x.setLabelCount(6, true);
-        x.setAxisLineColor(getResources().getColor(R.color.colorPrimary));
-        x.setPosition(XAxis.XAxisPosition.BOTTOM);
-        x.setDrawAxisLine(true);
-        x.setAxisLineWidth(1f);
-
-
-        YAxis y = mChart.getAxisLeft();
-        y.setLabelCount(3, true);
-        y.setTextColor(Color.BLACK);
-        y.setPosition(YAxis.YAxisLabelPosition.OUTSIDE_CHART);
-        y.setDrawGridLines(false);
-        x.setAxisLineWidth(1f);
-        y.setAxisLineColor(getResources().getColor(R.color.colorPrimary));
-        y.setYOffset(80f);
-
-
-        mLabels.add("Deep");
-        mLabels.add("Awake");
-        mLabels.add("Light");
-        mChart.getAxisRight().setEnabled(false);
-        mChart.getLegend().setEnabled(false);
-
-
-        ArrayList<Entry> yVals = new ArrayList<Entry>();
-        final List<Data> data = new ArrayList<>();
-        data.add(new Data(0f, 50f, "11-1"));
-        data.add(new Data(1f, 2338.5f, "1-3"));
-        data.add(new Data(2f, -2438.1f, "3-5"));
-        data.add(new Data(3f, 50f, "5-6"));
-        data.add(new Data(4f, -2238.1f, "6-8"));
-        data.add(new Data(5f, 50f, "11-1"));
-        data.add(new Data(6f, 2338.5f, "1-3"));
-        data.add(new Data(7f, -2438.1f, "3-5"));
-        data.add(new Data(8f, -1538.1f, "5-6"));
-        data.add(new Data(9f, 50f, "6-8"));
-        List<Integer> colors = new ArrayList<Integer>();
-
-
-        final List<String> timeList = new ArrayList<>();
-        timeList.add("11-1");
-        timeList.add("1-3");
-        timeList.add("3-5");
-        timeList.add("5-6");
-        timeList.add("6-8");
-
-        x.setValueFormatter(new IAxisValueFormatter() {
-            @Override
-            public String getFormattedValue(float value, AxisBase axis) {
-                return timeList.get(Math.min(Math.max((int) value, 0), timeList.size() - 1));
-            }
-        });
-
-        y.setValueFormatter(new IAxisValueFormatter() {
-            @Override
-            public String getFormattedValue(float value, AxisBase axis) {
-                return mLabels.get(Math.min(Math.max((int) value, 0), mLabels.size() - 1));
-            }
-        });
-        setDataForCubicLineChart(colors, yVals, data);
-
-
-    }
-
-    private void setDataForCubicLineChart(List<Integer> colors, ArrayList<Entry> yVals, List<Data> data) {
-
-        int blue = Color.parseColor("#00B0EC");
-        //rgb(110, 190, 102);
-        int blueLight = Color.parseColor("#7f6ecded");
-        int awakeColor = Color.parseColor("#F39CDEF4");
-
-        Data d = null;
-        for (int i = 0; i < data.size(); i++) {
-            d = data.get(i);
-            BarEntry entry = new BarEntry(d.xValue, d.yValue);
-            Log.d(TAG, "xValue:" + d.xValue + "yValue:" + d.yValue);
-            yVals.add(entry);
-        }
-        LineDataSet set1;
-        if (mChart.getData() != null && mChart.getData().getDataSetCount() > 0) {
-            set1 = (LineDataSet) mChart.getData().getDataSetByIndex(0);
-            set1.setValues(yVals);
-            mChart.getData().notifyDataChanged();
-            mChart.notifyDataSetChanged();
-
-        } else {
-            set1 = new LineDataSet(yVals, "DataSet 1");
-            set1.setMode(LineDataSet.Mode.CUBIC_BEZIER);
-            set1.setCubicIntensity(0.2f);
-            set1.setDrawFilled(true);
-            set1.setDrawCircles(false);
-            set1.setLineWidth(0.5f);
-            set1.setHighLightColor(getResources().getColor(R.color.colorPrimary));
-            set1.setCircleRadius(0.5f);
-            set1.setCircleColor(getResources().getColor(R.color.colorPrimary));
-//                set1.setHighLightColor(Color.rgb(244, 117, 117));
-
-
-            // specific colors
-
-            set1.setColor(Color.BLUE);
-            if (d.yValue >= 0) {
-                colors.add(blue);
-                set1.setFillColor(colors.get(0));
-            } else {
-                colors.add(blueLight);
-                set1.setFillColor(colors.get(1));
-            }
-
-            if (d.yValue >= 0 && d.yValue <= 100) {
-                colors.add(awakeColor);
-                set1.setFillColor(Color.BLUE);
-            }
-
-            set1.setFillAlpha(50);
-            set1.setDrawFilled(true);
-
-            set1.setDrawHorizontalHighlightIndicator(true);
-            LineData dataLine = new LineData(set1);
-            dataLine.setValueTextSize(9f);
-            dataLine.setDrawValues(false);
-            CustomMarkerView mv = new CustomMarkerView(getApplicationContext(), R.layout.linechart_three_tooltip);
-            mv.setChartView(mChart);
-            mv.setPadding(10, 8, 10, 8);
-            mChart.setMarkerView(mv);
-            mChart.setData(dataLine);
-
-
-        }
     }
 
 
@@ -333,10 +351,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         super.onResume();
 
 
-
     }
-
-
 
 
     private void setTimeLine(List<TimelineRow> list) {
@@ -358,19 +373,13 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 //        Log.d(TAG, "setTimeLine: "+new Gson().toJson(list));
 
 
-
-
     @RequiresApi(api = Build.VERSION_CODES.M)
     private void callSOS() {
         Intent intent = new Intent(Intent.ACTION_DIAL);
         intent.setData(Uri.parse("tel:9890410668"));
         startActivity(intent);
 
-//        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-//            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CALL_PHONE,}, RC_CALL);
-//        } else {
-//            startActivity(intent);
-//        }
+
     }
 
 
@@ -399,7 +408,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     @AfterPermissionGranted(RC_CALL)
     private void checkPermissionLocation() {
-        String[] perms = {Manifest.permission.CALL_PHONE, Manifest.permission.SEND_SMS};
+        String[] perms = {Manifest.permission.CALL_PHONE, Manifest.permission.SEND_SMS, Manifest.permission.READ_PHONE_STATE};
         if (EasyPermissions.hasPermissions(this, perms)) {
 
         } else {
@@ -420,6 +429,10 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         if (list.contains(Manifest.permission.CALL_PHONE)) {
             isPrermission = true;
         }
+        if (list.contains(Manifest.permission.READ_PHONE_STATE))
+            isPrermission = true;
+        if (list.contains(Manifest.permission.SEND_SMS))
+            isPrermission = true;
 
 
     }
@@ -431,17 +444,5 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         }
     }
 
-    private class Data {
-
-        public String xAxisValue;
-        public float yValue;
-        public float xValue;
-
-        public Data(float xValue, float yValue, String xAxisValue) {
-            this.xAxisValue = xAxisValue;
-            this.yValue = yValue;
-            this.xValue = xValue;
-        }
-    }
 
 }

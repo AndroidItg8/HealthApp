@@ -20,8 +20,8 @@ public abstract class BgModelThread implements Runnable {
 
     public BgModelThread(List<BreathModel> breathModels) {
         Collections.reverse(breathModels);
-        this.breathModels =   breathModels      ;
-        ;
+        this.breathModels =   breathModels;
+
     }
 
     @Override
@@ -61,8 +61,6 @@ String model = timeLineModel.getTitle();
         }else if (Integer.parseInt(model) >= AppConst.MIN_BREATH_VAKLUE && Integer.parseInt(model) < AppConst.THRESHOLD_CALM) {
             colorTitle = Color.parseColor("#00BCD4");
             colorBackground = Color.parseColor("#00BCD4");
-
-
         }
 
 

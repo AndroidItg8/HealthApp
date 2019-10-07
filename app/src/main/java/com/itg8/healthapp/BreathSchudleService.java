@@ -20,6 +20,7 @@ import com.itg8.healthapp.utils.Utils;
 
 
 public class BreathSchudleService extends JobIntentService {
+    private static Context mContext;
     final Handler mHandler = new Handler();
 
     private static final String TAG = "MyJobIntentService";
@@ -29,6 +30,7 @@ public class BreathSchudleService extends JobIntentService {
     private static final int JOB_ID = 2;
 
     public static void enqueueWork(Context context, Intent intent) {
+      mContext= context;
         Log.d(TAG, "enqueueWork: ");
         enqueueWork(context, BreathSchudleService.class, JOB_ID, intent);
     }
@@ -42,8 +44,8 @@ public class BreathSchudleService extends JobIntentService {
     @Override
     protected void onHandleWork(@NonNull Intent intent) {
         int mCurrentBreath= getCurrentBreath();
+
         if(mCurrentBreath==0){
-            setCurrentBreath(AppConst.DEFAULT_BREATH_VALUE);
             mCurrentBreath=getCurrentBreath();
             return;
         }
@@ -52,8 +54,9 @@ public class BreathSchudleService extends JobIntentService {
         if(isIncreament&& mCurrentBreath<=AppConst.MAX_BREATH_VAKLUE){
             mCurrentBreath+=1;
             if(mCurrentBreath==AppConst.MAX_BREATH_VAKLUE){
-
                 Prefs.putBoolean(SharedPrefUtils.IS_INCREAMENT,false);
+
+
             }
         }else if(mCurrentBreath>=AppConst.MIN_BREATH_VAKLUE && !isIncreament){
             mCurrentBreath-=1;
@@ -104,6 +107,8 @@ public class BreathSchudleService extends JobIntentService {
         model.setStatus(Utils.getStateByCount(mBreathValue).name());
         model.setTimestamp(System.currentTimeMillis());
         SharedPrefUtils.saveBreath(model);
+        if(mBreathValue>=AppConst.MAX_BREATH_VAKLUE)
+        SharedPrefUtils.setCurrentBreathHighCount(mContext);
     }
 
     private int getCurrentBreath() {

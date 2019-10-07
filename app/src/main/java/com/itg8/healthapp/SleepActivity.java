@@ -7,11 +7,13 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.TimePickerDialog;
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
@@ -23,11 +25,14 @@ import com.google.gson.Gson;
 import com.itg8.healthapp.common.DateUtility;
 import com.itg8.healthapp.common.Prefs;
 import com.itg8.healthapp.model.AlarmModel;
+import com.itg8.healthapp.utils.AppConst;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.TaskStackBuilder;
+import androidx.core.content.ContextCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -65,81 +70,46 @@ public class SleepActivity extends AppCompatActivity implements View.OnClickList
     private int hour;
     private int min;
 
-    int count = 0;
+   private static   int count = 0;
     private static final String TAG = "SleepActivity";
+    private NotificationManager notifManager;
 
-    BroadcastReceiver mServiceReceiver = new BroadcastReceiver() {
+    BroadcastReceiver  mServiceReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            showNotification(context, SleepActivity.class,
-                    "New Notification Alert..!", "scheduled for " + ALARM_TYPE_RTC + " seconds",ALARM_TYPE_RTC);
-//                    sendMessageToWhatsAppContact("");
-            String number = intent.getStringExtra("number");
-            count++;
-            if(count>3) {
-                sendSMS(number, "The is not responding ...");
+            Toast.makeText(context, "Alarm Received mServiceReceiver" , Toast.LENGTH_SHORT).show();
+
+
+            Intent serviceIntent = new Intent(context, SleepAlarmService.class);
+            //     serviceIntent.putExtra("inputExtra", "Foreground Service Example in Android");
+//            startForegroundService(context);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            }else{
+                startService(serviceIntent);
             }
+
+
         }
     };
 
+    BroadcastReceiver mAlarmReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Toast.makeText(context, "Alarm Received"+count , Toast.LENGTH_SHORT).show();
+            createNotification(" Getting late hurry up ....wake up wake up !!!  notification count"+count,context);
+            String number = intent.getStringExtra(AppConst.EXTRA_SMS_NUMBER);
 
-
-
-
-
-    public void showNotification(Context context, Class<?> cls, String title, String content,int RequestCode)
-    {
-        Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-
-        Intent notificationIntent = new Intent(context, cls);
-        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-
-        TaskStackBuilder stackBuilder = TaskStackBuilder.create(context);
-        stackBuilder.addParentStack(cls);
-        stackBuilder.addNextIntent(notificationIntent);
-
-        PendingIntent pendingIntent = stackBuilder.getPendingIntent(
-                RequestCode,PendingIntent.FLAG_ONE_SHOT);
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context,"Default");
-        Notification notification = builder.setContentTitle(title)
-                .setContentText(content).setAutoCancel(true)
-                .setSound(alarmSound).setSmallIcon(R.mipmap.ic_launcher_round)
-                .setContentIntent(pendingIntent).build();
-
-        NotificationManager notificationManager = (NotificationManager)
-                context.getSystemService(Context.NOTIFICATION_SERVICE);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            String channelId = "id1";
-            CharSequence channelName = "id1";
-            int importance = NotificationManager.IMPORTANCE_HIGH;
-            NotificationChannel notificationChannel = new NotificationChannel(channelId, channelName, importance);
-            notificationChannel.enableLights(true);
-            notificationChannel.setLightColor(Color.RED);
-            notificationChannel.enableVibration(true);
-            notificationChannel.setVibrationPattern(new long[]{100, 200, 300, 400, 500, 400, 300, 200, 400});
-            assert notificationManager != null;
-            notificationManager.createNotificationChannel(notificationChannel);
-
-//            NotificationCompat.Builder builder = new NotificationCompat.Builder(context,"Default");
-//            Notification notification = builder.setContentTitle(title)
-//                    .setContentText(content).setAutoCancel(true)
-//                    .setSound(alarmSound).setSmallIcon(R.mipmap.ic_launcher_round)
-//                    .setContentIntent(pendingIntent)
-//                    .setChannel(channelId).build();
+            if(count>=3) {
+                sendSMS(number, "XXX has set alarm for wake up but still not responding .. as soon as possible response him..");
+                clickToggleButtonElapsed(false);
+            }
+            count++;
 
         }
+    };
 
-
-        assert notificationManager != null;
-        notificationManager.notify(RequestCode,notification);
-    }
-
-
-
-
-    @Override
+  @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sleep);
@@ -148,11 +118,11 @@ public class SleepActivity extends AppCompatActivity implements View.OnClickList
         lblTime = findViewById(R.id.lblTime);
         btnSave = findViewById(R.id.btnSave);
         lblTime.setOnClickListener(this);
+        lblTime.setText(DateUtility.getDateFromDateTime(Calendar.getInstance().getTime()));
         btnSave.setOnClickListener(this);
         calendar = Calendar.getInstance();
         setSupportActionBar(toolbar);
-        setUpRecyclerView();
-        setUpPrefs();
+
 
 
 
@@ -161,11 +131,12 @@ public class SleepActivity extends AppCompatActivity implements View.OnClickList
     public void sendSMS(String phoneNo, String msg) {
         try {
             SmsManager smsManager = SmsManager.getDefault();
-            smsManager.sendTextMessage(phoneNo, null, msg, null, null);
-            Toast.makeText(getApplicationContext(), "Message Sent",
+            smsManager.sendTextMessage(phoneNo, "9511891383", msg, null, null);
+
+            Toast.makeText(this, "Message Sent",
                     Toast.LENGTH_LONG).show();
         } catch (Exception ex) {
-            Toast.makeText(getApplicationContext(), ex.getMessage().toString(),
+            Toast.makeText(this, ex.getMessage().toString(),
                     Toast.LENGTH_LONG).show();
             ex.printStackTrace();
         }
@@ -183,9 +154,9 @@ public class SleepActivity extends AppCompatActivity implements View.OnClickList
 
             String s = new Gson().toJson(alramList);
             Prefs.putString("alarm", s);
-
-
             mAdapter.notifyDataSetChanged();
+
+
 
         }
     }
@@ -205,51 +176,34 @@ public class SleepActivity extends AppCompatActivity implements View.OnClickList
                 openTimePicker();
                 break;
             case R.id.btnSave:
-                //  setAlarm();
-                clickToggleButtonElapsed(v);
+                clickToggleButtonElapsed(true);
                 break;
 
 
         }
     }
 
-    public void clickToggleButtonElapsed(View view) {
+    public void clickToggleButtonElapsed(boolean isEnable) {
 
 
-        if (true) {
+        if (isEnable) {
             NotificationHelper.scheduleRepeatingRTCNotification(this, hour, min);
             NotificationHelper.enableBootReceiver(this);
         } else {
             NotificationHelper.cancelAlarmElapsed();
             NotificationHelper.disableBootReceiver(this);
+            NotificationHelper.cancelAlarmRTC();
+
         }
     }
 
-    public void cancelAlarms(View view) {
+    public void cancelAlarms() {
         NotificationHelper.cancelAlarmRTC();
         NotificationHelper.cancelAlarmElapsed();
         NotificationHelper.disableBootReceiver(this);
     }
 
-    private void setAlarm() {
-        Intent intent = new Intent(SleepActivity.this, AlarmReceiver.class);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(SleepActivity.this, RC_ALARM, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        Log.d(TAG, "setAlarm: " + timeLong);
-        alarmManager.set(AlarmManager.RTC_WAKEUP, timeLong,
-                pendingIntent);
 
-
-        alarmManager.setInexactRepeating(AlarmManager.ELAPSED_REALTIME,
-                SystemClock.elapsedRealtime() + AlarmManager.INTERVAL_FIFTEEN_MINUTES,
-                AlarmManager.INTERVAL_FIFTEEN_MINUTES, pendingIntent);
-
-
-        //Setting intent to class where notification will be handled
-
-
-//        alarmManager.set(AlarmManager.RTC_WAKEUP, timeLong, pendingIntent);
-    }
 
     @Override
     protected void onResume() {
@@ -260,47 +214,24 @@ public class SleepActivity extends AppCompatActivity implements View.OnClickList
     @Override
     protected void onStart() {
         super.onStart();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction("android.intent.action.SmsReceiver");
-        registerReceiver(mServiceReceiver, filter);
+//        IntentFilter filter = new IntentFilter();
+//        filter.addAction(AppConst.ACTION_BROADCAST_SLEEP);
+//        LocalBroadcastManager.getInstance(this).registerReceiver(mServiceReceiver, filter);
+
+        IntentFilter filterB = new IntentFilter();
+        filterB.addAction(AppConst.ACTION_BROADCAST_ALARM);
+        LocalBroadcastManager.getInstance(this).registerReceiver(mAlarmReceiver, filterB);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        unregisterReceiver(mServiceReceiver);
-    }
-
-    private void sendMessageToWhatsAppContact(String number) {
-//        PackageManager packageManager = getPackageManager();
-//        Intent i = new Intent(Intent.ACTION_SENDTO);
-//        try {
-//            String url = "https://api.whatsapp.com/send?phone=" + number + "&text=" + URLEncoder.encode("MEssge", "UTF-8");
-//            i.setPackage("com.whatsapp");
-//            i.setData(Uri.parse(url));
-//            if (i.resolveActivity(packageManager) != null) {
-//                startActivity(i);
-//            }
-//            Toast.makeText(this, "sendWhatsUp"+ number, Toast.LENGTH_SHORT).show();
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-
-
-        String toNumber = "+91 98904 10668"; // contains spaces.
-        toNumber = toNumber.replace("+", "").replace(" ", "");
-
-        Intent sendIntent = new Intent("android.intent.action.MAIN");
-        sendIntent.putExtra("jid", toNumber + "@s.whatsapp.net");
-        sendIntent.putExtra(Intent.EXTRA_TEXT, "hiii");
-        sendIntent.setAction(Intent.ACTION_SEND);
-        sendIntent.setPackage("com.whatsapp");
-        sendIntent.setType("text/plain");
-        startActivity(sendIntent);
-
+//        LocalBroadcastManager.getInstance(this).unregisterReceiver(mServiceReceiver);
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mAlarmReceiver);
 
     }
+
+
 
     public void openTimePicker() {
         int mHour = calendar.get(Calendar.HOUR_OF_DAY);
@@ -330,6 +261,69 @@ public class SleepActivity extends AppCompatActivity implements View.OnClickList
 
 
     }
+    public void createNotification(String aMessage, Context context) {
+        final int NOTIFY_ID = 0; // ID of notification
+//        Uri soundUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://"+ getApplicationContext().getPackageName() + "/" + R.raw.siren);
+        String id = context.getString(R.string.default_notification_channel_id); // default_channel_id
+        String title = context.getString(R.string.default_notification_channel_title); // Default Channel
+       Uri uri =  RingtoneManager.getValidRingtoneUri(this);
+        Intent intent;
+        PendingIntent pendingIntent;
+        NotificationCompat.Builder builder;
+        if (notifManager == null) {
+            notifManager = (NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            AudioAttributes att = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build();
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            NotificationChannel mChannel = notifManager.getNotificationChannel(id);
+            if (mChannel == null) {
+                mChannel = new NotificationChannel(id, title, importance);
+                mChannel.enableVibration(true);
+                mChannel.setVibrationPattern(new long[]{100, 200, 300, 400, 500, 400, 300, 200, 400});
+                mChannel.setSound(uri,att);
+                notifManager.createNotificationChannel(mChannel);
+            }
+            builder = new NotificationCompat.Builder(context, id);
+            intent = new Intent(context, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            pendingIntent = PendingIntent.getActivity(context, 0, intent, 0);
+            builder.setContentTitle(aMessage)                            // required
+                    .setSmallIcon(android.R.drawable.ic_popup_reminder)   // required
+                    .setContentText(context.getString(R.string.app_name)) // required
+                    .setDefaults(Notification.DEFAULT_ALL)
+                    .setAutoCancel(true)
+                    .setContentIntent(pendingIntent)
+                    .setTicker(aMessage)
+                    .setSound(uri)
+                    .setPriority(Notification.PRIORITY_MAX)
+                    .setVibrate(new long[]{100, 200, 300, 400, 500, 400, 300, 200, 400});
+        }
+        else {
+            builder = new NotificationCompat.Builder(context, id);
+            intent = new Intent(context, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            pendingIntent = PendingIntent.getActivity(context, 0, intent, 0);
+            builder.setContentTitle(aMessage)                            // required
+                    .setSmallIcon(android.R.drawable.ic_popup_reminder)   // required
+                    .setContentText(context.getString(R.string.app_name)) // required
+                    .setDefaults(Notification.DEFAULT_ALL)
+                    .setAutoCancel(true)
+                    .setContentIntent(pendingIntent)
+                    .setTicker(aMessage)
+                    .setSound(uri)
+                    .setVibrate(new long[]{100, 200, 300, 400, 500, 400, 300, 200, 400})
+                    .setPriority(Notification.PRIORITY_HIGH);
+        }
+        Notification notification = builder.build();
+        notifManager.notify(NOTIFY_ID, notification);
+    }
+
+
 
 
 }

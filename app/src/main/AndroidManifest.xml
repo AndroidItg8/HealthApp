@@ -13,7 +13,7 @@
         <activity
             android:name=".SleepActivity"
             android:label="@string/title_activity_sleep"
-            android:theme="@style/AppTheme.NoActionBar"/>
+            android:theme="@style/AppTheme.NoActionBar" />
         <activity
             android:name=".MainActivity"
             android:label="@string/app_name"
@@ -26,38 +26,47 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".BreathSchudleService"
-            android:exported="true"
-            android:permission="android.permission.BIND_JOB_SERVICE" />
-
-        <receiver android:name=".AlarmReceiver"
+        <receiver
+            android:name=".AlarmReceiver"
             android:process=":remote">
             <intent-filter>
-<!--                <action android:name="android.provider.Telephony.SMS_RECEIVED" />-->
+                <!--                <action android:name="android.provider.Telephony.SMS_RECEIVED" />-->
                 <action android:name="com.test.intent.action.ALARM" />
 
             </intent-filter>
 
         </receiver>
 
-
-        <receiver android:name=".DeviceBootReceiver"
+        <receiver
+            android:name=".DeviceBootReceiver"
             android:enabled="false">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
 
+        <receiver android:name=".SleepAlarmReceiver">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+                <action android:name="com.test.intent.action.ALARM" />
+
+            </intent-filter>
+        </receiver>
+        <service
+            android:name=".BreathSchudleService"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service android:name=".SleepAlarmService" />
 
 
     </application>
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SEND_SMS"/>
-    <uses-permission android:name="android.permission.CALL_PHONE"/>
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.VIBRATE" />
-<!--    <uses-permission android:name="android.permission.CALL_PRIVILEGED"/>-->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!--    <uses-permission android:name="android.permission.CALL_PRIVILEGED"/>-->
 
 </manifest>

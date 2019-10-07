@@ -20,13 +20,7 @@ public class AlarmReceiver  extends BroadcastReceiver {
 
     }
 
-    private void sendWhatsUp(Context context) {
-        Toast.makeText(context, "sendWhatsUp", Toast.LENGTH_SHORT).show();
-        Intent intent = new Intent("android.intent.action.SmsReceiver");
-        intent.putExtra("number", " 9890410668");
-        context.sendBroadcast(intent);
-//        sendMessageToWhatsAppContact(context,"9890410668");
-    }
+
 
 
 

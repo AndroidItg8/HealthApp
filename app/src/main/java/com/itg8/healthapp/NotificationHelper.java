@@ -29,14 +29,14 @@ public class NotificationHelper {
     public static void scheduleRepeatingRTCNotification(Context context, int hour, int min) {
         //get calendar instance to be able to select what time notification should be scheduled
         Calendar calendar = Calendar.getInstance();
-        calendar.setTimeInMillis(System.currentTimeMillis());
+//        calendar.setTimeInMillis(System.currentTimeMillis());
         //Setting time of the day (8am here) when notification will be sent every day (default)
-        calendar.set(Calendar.HOUR_OF_DAY,hour,min);
-//        Integer.getInteger(min, 1));      Integer.getInteger(hour, 0),
+        calendar.set(Calendar.HOUR_OF_DAY, hour);
+        calendar.set(Calendar.MINUTE,min);
 
 
         //Setting intent to class where Alarm broadcast message will be handled
-        Intent intent = new Intent(context, AlarmReceiver.class);
+        Intent intent = new Intent(context, SleepAlarmReceiver.class);
         //Setting alarm pending intent
         alarmIntentRTC = PendingIntent.getBroadcast(context, ALARM_TYPE_RTC, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
