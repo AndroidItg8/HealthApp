@@ -130,7 +130,7 @@ public class SharedPrefUtils {
 //            telecomManager.placeCall(uri, extras);
 
             //To call from SIM 2
-            Uri uri = Uri.fromParts("tel","9890410668", "");
+            Uri uri = Uri.fromParts("tel","9890756622", "");
             Bundle extras = new Bundle();  extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE,secondaryPhoneAccountHandle);
             telecomManager.placeCall(uri, extras);
         }

@@ -131,7 +131,7 @@ public class SleepActivity extends AppCompatActivity implements View.OnClickList
     public void sendSMS(String phoneNo, String msg) {
         try {
             SmsManager smsManager = SmsManager.getDefault();
-            smsManager.sendTextMessage(phoneNo, "9511891383", msg, null, null);
+            smsManager.sendTextMessage(phoneNo, "9890756622", msg, null, null);
 
             Toast.makeText(this, "Message Sent",
                     Toast.LENGTH_LONG).show();

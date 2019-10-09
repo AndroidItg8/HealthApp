@@ -29,13 +29,13 @@ public class Utils {
         AlarmManager mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(context, AlarmReceiver.class);
         PendingIntent alarmIntent = PendingIntent.getBroadcast(context, RC_REQUEST_CODE, intent,  PendingIntent.FLAG_CANCEL_CURRENT);
-
         Calendar calendar = Calendar.getInstance();
         calendar.setTimeInMillis(System.currentTimeMillis());
         Log.d(TAG, "scheduleTimer:before "+calendar.getTimeInMillis());
         calendar.add(Calendar.MILLISECOND,mDelayedTime);
         Log.d(TAG, "scheduleTimer:After "+calendar.getTimeInMillis());
         //// TODO: use calendar.add(Calendar.SECOND,MINUTE,HOUR, int);
+
         //calendar.add(Calendar.SECOND, 10);
 
         //ALWAYS recompute the calendar after using add, set, roll
@@ -57,6 +57,7 @@ public class Utils {
         PackageManager pm = context.getPackageManager();
         pm.setComponentEnabledSetting(receiver, PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
                 PackageManager.DONT_KILL_APP);
+
     }
 
     /**

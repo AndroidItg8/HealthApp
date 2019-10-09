@@ -21,12 +21,11 @@ import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.formatter.IAxisValueFormatter;
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.snackbar.Snackbar;
 import com.google.gson.Gson;
 import com.itg8.healthapp.background.BgModelThread;
 import com.itg8.healthapp.background.SleepModelThread;
-import com.itg8.healthapp.common.Prefs;
 import com.itg8.healthapp.model.BreathModel;
 import com.itg8.healthapp.model.SleepModel;
 import com.itg8.healthapp.utils.AppConst;
@@ -62,14 +61,21 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     private static final int RC_CALL = 2345;
     private static final String TAG = "MainActivity";
-    ArrayList<String> mLabels = new ArrayList<>();
+    private TimelineViewAdapter myAdapter;
+    private ListView myListView;
+    private boolean isPrermission = false;
 
+
+    ArrayList<String> mLabels = new ArrayList<>();
+ ArrayList<String> timeList = new ArrayList<>();
+    List<SleepModel> data = new ArrayList<>();
 
     private LineChart mChart;
 
     private Handler myHandler;
 
     private Runnable listInteractor;
+    private Runnable sleepDataInteractor;
 
 
     BroadcastReceiver mBreathReceiver = new BroadcastReceiver() {
@@ -87,9 +93,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
         }
     };
-    private TimelineViewAdapter myAdapter;
-    private ListView myListView;
-    private boolean isPrermission = false;
+
 
     private void generateTimeLine(List<BreathModel> listBreathModel) {
         listInteractor = new BgModelThread(listBreathModel) {
@@ -103,12 +107,15 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         myHandler.post(listInteractor);
     }
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        // SleepModelThread.getSleepModel();
+
         init();
 
         Utils.scheduleTimer(this, AppConst.TIMER_DELAY);
@@ -136,19 +143,18 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     }
 
     private void generateSleepGraph() {
-        cubicLineChart();
-        mChart.invalidate();
-        mChart.notifyDataSetChanged();
-        mChart.animateX(1000);
-        new SleepModelThread(mChart) {
-            @Override
-            public void run() {
-                Log.d(TAG, "run: is main thread SleepGraph");
-                if (Looper.myLooper() == Looper.getMainLooper())
-                    Log.d(TAG, "run: is main thread SleepGraph");
 
-            }
-        };
+        cubicLineChart();
+
+//        new SleepModelThread(mChart) {
+//            @Override
+//            public void run() {
+//                Log.d(TAG, "run: is main thread SleepGraph");
+//                if (Looper.myLooper() == Looper.getMainLooper())
+//                    Log.d(TAG, "run: is main thread SleepGraph");
+//
+//            }
+//        };
 
     }
 
@@ -172,7 +178,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         x.setEnabled(true);
         x.setDrawGridLines(false);
         x.setAvoidFirstLastClipping(true);
-        x.setLabelCount(6, true);
+        x.setLabelCount(5);
         x.setPosition(XAxis.XAxisPosition.BOTTOM);
         x.setSpaceMax(10);
         x.setDrawAxisLine(true);
@@ -183,9 +189,8 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         x.setAxisLineColor(getResources().getColor(R.color.colorAccent));
 
 
-
         YAxis y = mChart.getAxisLeft();
-        y.setLabelCount(3, true);
+        y.setLabelCount(3 );
         y.setTextColor(Color.BLACK);
         y.setPosition(YAxis.YAxisLabelPosition.OUTSIDE_CHART);
         y.setDrawGridLines(false);
@@ -193,77 +198,106 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         y.setYOffset(4f);
         y.setAxisLineWidth(0.4f);
 
-        mLabels.add("Deep");
-        mLabels.add("Light");
-        mLabels.add("Awake");
         mChart.getAxisRight().setEnabled(false);
         mChart.getLegend().setEnabled(false);
         mChart.animateXY(2000, 2000);
         mChart.invalidate();
+        mChart.notifyDataSetChanged();
+        mChart.animateX(1000);
+        x.setGranularity(1f);
+
+
+        getTimeLineList();
+//        final String[] months = new String[]{"11-1", "1-3", "3-5", "5-6","6-8"};
+        x.setValueFormatter(new IAxisValueFormatter() {
+            @Override
+            public String getFormattedValue(float value, AxisBase axis) {
+             return   timeList.get(Math.min(Math.max((int) value, 0), timeList.size() - 1));
+//                Log.d(TAG, "getFormattedValue X: " + timeList.get(Math.min(Math.max((int) value, 0), timeList.size() - 1)));
+
+            }
+
+        });
+
+
+        getLables();
+        y.setValueFormatter(new IAxisValueFormatter() {
+            @Override
+            public String getFormattedValue(float value, AxisBase axis) {
+                Log.d(TAG, "getFormattedValue Y: " + mLabels.get(Math.min(Math.max((int) value, 0), mLabels.size() - 1)));
+                return mLabels.get(Math.min(Math.max((int) value, 0), mLabels.size() - 1));
+            }
+        });
+//        mChart.getAxisRight().setValueFormatter(new IndexAxisValueFormatter(timeList));
+//        mChart.getAxisLeft().setValueFormatter(new IndexAxisValueFormatter(mLabels));
+
+
+        getSleepModel();
 
 
 
-        ArrayList<Entry> yVals = new ArrayList<Entry>();
-        final List<SleepModel> data = new ArrayList<>();
+//        generateGraph();
+        setDataForCubicLineChart();
+
+
+    }
+
+    public void getSleepModel() {
         data.add(new SleepModel(0f, 50f, "11-1"));
         data.add(new SleepModel(1f, 2338.5f, "1-3"));
         data.add(new SleepModel(2f, -2438.1f, "3-5"));
         data.add(new SleepModel(3f, 50f, "5-6"));
         data.add(new SleepModel(4f, -2238.1f, "6-8"));
-        data.add(new SleepModel(5f, 50f, "11-1"));
-        data.add(new SleepModel(6f, 2338.5f, "1-3"));
-        data.add(new SleepModel(7f, -2438.1f, "3-5"));
-        data.add(new SleepModel(8f, 50f, "5-6"));
-        data.add(new SleepModel(9f, 70f, "6-8"));
+        Log.d(TAG, "getSleepModel: " + new Gson().toJson(data));
 
-        List<Integer> colors = new ArrayList<Integer>();
+    }
 
 
-        final List<String> timeList = new ArrayList<>();
+    public void getTimeLineList() {
         timeList.add("11-1");
         timeList.add("1-3");
         timeList.add("3-5");
         timeList.add("5-6");
         timeList.add("6-8");
+//        Log.d(TAG, "getTimeLineList: " + new Gson().toJson(timeList));
+    }
 
-        x.setValueFormatter(new IAxisValueFormatter() {
+
+    private void generateGraph() {
+        sleepDataInteractor = new SleepModelThread(data) {
+
             @Override
-            public String getFormattedValue(float value, AxisBase axis) {
-                Log.d(TAG, "getFormattedValue: " + timeList.get(Math.min(Math.max((int) value, 0), timeList.size()-1)));
+            public void getSleepEntryModel(List<Entry> yVals, SleepModel d) {
+                if (Looper.myLooper() == Looper.getMainLooper())
+                    Log.d(TAG, "run: is main thread Graph");
+            //    setDataForCubicLineChart(yVals, d);
 
-                return timeList.get(Math.min(Math.max((int) value, 0), timeList.size()-1));
             }
-        });
-
-        y.setValueFormatter(new IAxisValueFormatter() {
-            @Override
-            public String getFormattedValue(float value, AxisBase axis) {
-                Log.d(TAG, "getFormattedValue: " + mLabels.get(Math.min(Math.max((int) value, 0), mLabels.size()-1)));
-
-                return mLabels.get(Math.min(Math.max((int) value, 0), mLabels.size()-1));
-            }
-        });
-
-        setDataForCubicLineChart(colors, yVals, data);
-
+        };
+        myHandler.post(sleepDataInteractor);
 
     }
 
-    private void setDataForCubicLineChart(List<Integer> colors, ArrayList<Entry> yVals, List<SleepModel> data) {
+    private void setDataForCubicLineChart() {
 
         int blue = Color.parseColor("#00B0EC");
         //rgb(110, 190, 102);
         int blueLight = Color.parseColor("#7f6ecded");
         int awakeColor = Color.parseColor("#F39CDEF4");
-
         SleepModel d = null;
-        for (int i = 0; i < data.size(); i++) {
-            d = data.get(i);
-            BarEntry entry = new BarEntry(d.xValue, d.yValue);
-            Log.d(TAG, "xValue:" + d.xValue + "yValue:" + d.yValue);
-            yVals.add(entry);
+
+        List<Entry> yVals= new ArrayList<>();
+        if(data.size()>0) {
+            for (int i = 0; i < data.size(); i++) {
+                d = data.get(i);
+
+                BarEntry entry = new BarEntry(d.xValue, d.yValue);
+                Log.d(TAG, "xValue:" + d.xValue + "yValue:" + d.yValue);
+                yVals.add(entry);
+            }
         }
-        Log.d(TAG, "setDataForCubicLineChart: "+new Gson().toJson(yVals));
+
+        Log.d(TAG, "setDataForCubicLineChart: " + new Gson().toJson(yVals));
         LineDataSet set1;
         if (mChart.getData() != null && mChart.getData().getDataSetCount() > 0) {
             set1 = (LineDataSet) mChart.getData().getDataSetByIndex(0);
@@ -288,24 +322,23 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
             // specific colors
 
             set1.setColor(Color.BLUE);
-            if (d.yValue >= 0) {
-//                colors.add(blue,0);
-                set1.setFillColor(getResources().getColor(R.color.colorDeep));
-            } else {
-//                colors.add(blueLight,1);
-//                set1.setFillColor(Col);
-                set1.setFillColor(getResources().getColor(R.color.colorLight));
-
-            }
-
-            if (d.yValue >= 0 && d.yValue <= 100) {
-//                colors.add(awakeColor,2);
-                set1.setFillColor(getResources().getColor(R.color.colorAwake));
-            }
+//            if (d.yValue >= 0) {
+////                colors.add(blue,0);
+//                set1.setFillColor(getResources().getColor(R.color.colorDeep));
+//            } else {
+////                colors.add(blueLight,1);
+////                set1.setFillColor(Col);
+//                set1.setFillColor(getResources().getColor(R.color.colorLight));
+//
+//            }
+//
+//            if (d.yValue >= 0 && d.yValue <= 100) {
+////                colors.add(awakeColor,2);
+//                set1.setFillColor(getResources().getColor(R.color.colorAwake));
+//            }
 
 //            set1.setFillAlpha(50);
             set1.setDrawFilled(true);
-
             set1.setDrawHorizontalHighlightIndicator(true);
             LineData dataLine = new LineData(set1);
             dataLine.setValueTextSize(9f);
@@ -315,9 +348,8 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
             mv.setPadding(10, 8, 10, 8);
             mChart.setMarkerView(mv);
             mChart.setData(dataLine);
-
-
         }
+
     }
 
 
@@ -356,7 +388,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     private void setTimeLine(List<TimelineRow> list) {
         // Create Timeline rows List
-        if (myAdapter == null) {
+        if (myAdapter == null && list != null && list.size() > 0) {
             Log.d(TAG, "setTimeLine: myAdapter");
             ArrayList<TimelineRow> listTimeLine = new ArrayList<>(list);
 
@@ -366,9 +398,11 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
             return;
         }
         Log.d(TAG, "setTimeLine: ");
-        myAdapter.clear();
-        myAdapter.addAll(list);
-        myAdapter.notifyDataSetChanged();
+        if (myAdapter != null) {
+            myAdapter.clear();
+            myAdapter.addAll(list);
+            myAdapter.notifyDataSetChanged();
+        }
     }
 //        Log.d(TAG, "setTimeLine: "+new Gson().toJson(list));
 
@@ -416,6 +450,15 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                     RC_CALL, perms);
         }
     }
+
+    public void getLables() {
+        mLabels.add("Deep");
+        mLabels.add("Awake");
+        mLabels.add("Light");
+        Log.d(TAG, "getTimeLineList: " + new Gson().toJson(mLabels));
+
+    }
+
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
